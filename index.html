@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>DOL 存档编辑器 · Degrees of Lewdity Save Editor</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#5b2a86">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DOL 存档">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <button id="btnMenu" class="btn icon-only mobile-only" aria-label="菜单">☰</button>
+  <div class="brand">
+    <div class="logo">DOL</div>
+    <div class="brand-text">
+      <h1>Degrees of Lewdity 存档编辑器</h1>
+      <p class="sub">本地浏览器解码 / 编辑 / 重打包 · 不上传任何文件</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="btnLoad" class="btn primary">📂 <span class="btn-text">打开 .save</span></button>
+    <input type="file" id="fileInput" accept=".save,.txt,.json" hidden>
+    <button id="btnExport" class="btn success" disabled>💾 <span class="btn-text">导出新存档</span></button>
+    <button id="btnExportJson" class="btn ghost desktop-only" disabled>{ } 导出 JSON</button>
+    <button id="btnHelp" class="btn ghost">❔<span class="btn-text"> 帮助</span></button>
+  </div>
+</header>
+
+<main id="emptyView" class="empty">
+  <div class="dropzone" id="dropzone">
+    <div class="big">⬇</div>
+    <h2 class="dz-title-desktop">把 .save 文件拖到这里，或点击"打开 .save"</h2>
+    <h2 class="dz-title-mobile">点击下方按钮选择 .save 文件</h2>
+    <p>支持 Degrees of Lewdity（SugarCube 引擎）的存档：<code>LZString.compressToBase64</code> 压缩的 JSON。
+       工具会自动解压、解析、生成可视化的 GUI 编辑器；改完后可重新打包。</p>
+    <button id="btnLoadBig" class="btn primary big-cta">📂 选择 .save 文件</button>
+    <p class="tip">⚠ 编辑存档可能让游戏崩溃，建议先备份原文件。本工具完全离线运行。</p>
+  </div>
+</main>
+
+<main id="editorView" class="editor hidden">
+  <div id="sidebarBackdrop" class="backdrop hidden"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head mobile-only">
+      <span>分类</span>
+      <button id="btnCloseSidebar" class="btn icon-only" aria-label="关闭">×</button>
+    </div>
+    <div class="search">
+      <input id="searchBox" placeholder="🔍 搜索变量名…" inputmode="search" autocomplete="off">
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="meta" id="metaBox"></div>
+  </aside>
+  <section class="panel">
+    <div class="panel-header">
+      <h2 id="panelTitle">总览</h2>
+      <div class="panel-sub" id="panelSub"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<div id="helpModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>使用说明</h2>
+    <ol>
+      <li><b>打开存档</b>：点击"📂 打开 .save"，或在桌面端直接拖入。</li>
+      <li><b>分类浏览</b>：手机点左上角 ☰ 切分类；桌面端在左侧栏。</li>
+      <li><b>修改</b>：直接编辑输入框；数字/文本/布尔自动识别，复杂对象用 JSON 编辑。</li>
+      <li><b>导出</b>：点击"💾 导出新存档"重新打包成同格式 .save。</li>
+      <li><b>原始 JSON</b>：高级用户可在"⚙ 原始 JSON"页签直接改整段 JSON。</li>
+    </ol>
+    <h3>关于格式</h3>
+    <p>DOL 用 SugarCube 引擎，存档是 <code>JSON.stringify → LZString.compressToBase64</code>。
+       本编辑器解出 <code>state.delta[0].variables</code>，写回后截断历史保证修改生效。</p>
+    <h3>手机使用</h3>
+    <p>支持安卓 Chrome/Edge/Firefox 直接访问；可"添加到主屏幕"做成离线 App（PWA）。</p>
+    <h3>免责声明</h3>
+    <p>仅本地运行，不上传任何文件。</p>
+    <button class="btn primary" id="closeHelp">明白了</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="lz-string.min.js"></script>
+<script src="app.js"></script>
+<script>
+  // PWA 注册（可选；非 https/localhost 会自动跳过）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
