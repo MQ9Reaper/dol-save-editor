@@ -63,9 +63,11 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 
 .field{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;transition:.15s}
 .field:hover{border-color:#c4b5fd;box-shadow:0 2px 8px rgba(91,42,134,.08)}
-.field-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
-.field-name{font-size:13.5px;font-weight:600;color:#374151;word-break:break-all}
-.field-type{font-size:10px;text-transform:uppercase;padding:2px 6px;border-radius:4px;color:#fff;letter-spacing:.5px;flex-shrink:0}
+.field-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px}
+.field-name{font-size:13.5px;font-weight:600;color:#374151;word-break:break-all;display:flex;flex-direction:column;gap:2px}
+.field-name .zh{color:#5b2a86;font-size:13.5px;font-weight:600}
+.field-name .en{color:#9ca3af;font-size:11px;font-weight:500;font-family:Consolas,Menlo,monospace}
+.field-type{font-size:10px;text-transform:uppercase;padding:2px 6px;border-radius:4px;color:#fff;letter-spacing:.5px;flex-shrink:0;margin-top:2px}
 .t-number{background:#0ea5e9}
 .t-string{background:#16a34a}
 .t-boolean{background:#f59e0b}
@@ -118,18 +120,18 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   .desktop-only{display:none!important}
   .mobile-only{display:inline-flex}
 
-  .topbar{padding:10px 14px;gap:8px}
-  .topbar h1{font-size:15px}
-  .sub{display:none}
-  .logo{width:36px;height:36px;font-size:13px}
-  .brand{gap:10px}
-  .actions{gap:6px}
+  .topbar{padding:8px 10px;gap:6px;min-height:56px}
+  /* 手机端整个标题块隐藏，只用 logo + 按钮，避免文字换行挤压 */
+  .brand-text{display:none}
+  .brand{flex:0 0 auto;gap:8px}
+  .logo{width:38px;height:38px;font-size:13px}
+  .actions{flex:1;justify-content:flex-end;gap:6px}
   .btn{padding:8px 10px;font-size:12.5px;min-height:38px}
   .btn .btn-text{display:none}
   .btn.primary,.btn.success{padding:8px 12px}
   .btn.primary .btn-text,.btn.success .btn-text{display:inline}
 
-  .empty{padding:24px 14px;min-height:calc(100dvh - 60px)}
+  .empty{padding:24px 14px;min-height:calc(100dvh - 56px)}
   .dropzone{padding:32px 22px}
   .dropzone .big{font-size:50px}
   .dropzone h2{font-size:17px}
@@ -137,10 +139,12 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
   .dz-title-mobile{display:block}
   .dropzone p{font-size:13px}
 
-  .editor{grid-template-columns:1fr;height:calc(100dvh - 60px)}
-  .sidebar{position:fixed;top:0;left:0;bottom:0;width:82vw;max-width:320px;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 16px rgba(0,0,0,.18);height:100dvh}
+  .editor{grid-template-columns:1fr;height:calc(100dvh - 56px)}
+  /* 侧栏盖到顶栏之上（顶栏 z:10，这里给到 30），不再被遮 */
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:84vw;max-width:340px;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 16px rgba(0,0,0,.18);height:100dvh;z-index:30;padding-top:env(safe-area-inset-top)}
   .sidebar.open{transform:translateX(0)}
-  .sidebar-head{display:flex}
+  .sidebar-head{display:flex;padding:14px 16px;font-size:15px}
+  .backdrop{z-index:25}
   .panel{padding:14px 14px}
   .panel-header h2{font-size:16px}
   .grid{grid-template-columns:1fr;gap:10px;padding-bottom:60px}
@@ -152,6 +156,6 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 }
 
 @media (max-width: 380px){
-  .topbar h1{font-size:14px}
-  .logo{display:none}
+  .btn.icon-only{padding:7px 9px}
+  .logo{width:34px;height:34px;font-size:11px}
 }

@@ -53,6 +53,13 @@ function tryParseNumber(s) {
   return Number.isFinite(n) ? n : null;
 }
 
+// 字段名渲染：有中文翻译就显示"中文 / 英文(小字)"，没有就纯英文
+function fieldNameHtml(key) {
+  const zh = (window.DOL_DICT && window.DOL_DICT.translate(key)) || null;
+  if (!zh) return escapeHtml(key);
+  return `<span class="zh">${escapeHtml(zh)}</span><span class="en">${escapeHtml(key)}</span>`;
+}
+
 // ====== 解码 / 编码 ======
 function decodeSave(base64Text) {
   const text = base64Text.trim();
@@ -195,7 +202,13 @@ function renderFields(catId) {
   const cats = categorize();
   let keys = cats[catId] || [];
   const q = ($('#searchBox').value || '').trim().toLowerCase();
-  if (q) keys = keys.filter(k => k.toLowerCase().includes(q));
+  if (q) {
+    keys = keys.filter(k => {
+      if (k.toLowerCase().includes(q)) return true;
+      const zh = window.DOL_DICT && window.DOL_DICT.translate(k);
+      return zh && zh.toLowerCase().includes(q);
+    });
+  }
 
   if (!keys.length) {
     $('#grid').innerHTML = `<div style="color:#9ca3af;padding:20px;font-size:14px">没有匹配的变量。</div>`;
@@ -242,7 +255,7 @@ function fieldHtml(key, val) {
   return `
     <div class="field${changed}" data-key="${escapeHtml(key)}">
       <div class="field-head">
-        <span class="field-name" title="${escapeHtml(key)}">${escapeHtml(key)}</span>
+        <span class="field-name" title="${escapeHtml(key)}">${fieldNameHtml(key)}</span>
         <span class="field-type t-${t}">${t}</span>
       </div>
       ${editor}
