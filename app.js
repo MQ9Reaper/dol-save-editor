@@ -1,15 +1,15 @@
 /* ============================================================================
    DOL Save Editor - app.js
-   功能：解码 LZString Base64 → JSON；分类展示变量并允许编辑；
-        编辑后写回 state.delta[0]，截断后续历史，重新 LZString.compressToBase64。
+   功能：解码 LZString Base64 → JSON；还原当前历史帧并允许编辑；
+        重新编码当前帧的变量差量，再 LZString.compressToBase64。
    ============================================================================ */
 
 // ====== 全局状态 ======
 const STATE = {
   rawText: null,        // 原始 base64 字符串
   decoded: null,        // 解码后的完整对象 {id, state:{index, expired, seed, loadedVersion, delta}, idx}
-  vars: null,           // 当前可编辑的 variables 对象（来自 delta[0]）
-  variablesPath: null,  // 在 decoded 内部到 variables 的路径（用于回写）
+  vars: null,           // 当前帧还原后的 variables 对象
+  baselineVars: null,   // 加载时当前帧的 variables，用于判断修改
   fileName: 'edited.save',
   changed: new Set(),   // 已修改的字段名（用于高亮）
   currentTab: 'common'
@@ -76,21 +76,98 @@ function encodeSave(obj) {
   return LZString.compressToBase64(json);
 }
 
-// ====== 找到当前 variables（最新帧）======
-// SugarCube History 结构：
-//   state.delta = [ moment0_full, moment1_diff, moment2_diff, ... ]
-//   state.index = 当前 moment 索引
-// 编辑策略：把 delta[0] 解出来给用户改 → 改完后把 delta 截断为 [delta[0]]，index 重置为 0。
-// 这样不会被后续 diff 覆盖。
-function extractVariables(decoded) {
-  if (!decoded.state || !decoded.state.delta || !decoded.state.delta.length) {
+// ====== 还原 SugarCube 当前历史帧 ======
+// delta[0] 是完整帧，后续元素是与前一帧之间的差量。
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+function setOwnValue(obj, key, value) {
+  Object.defineProperty(obj, key, {
+    value, writable: true, enumerable: true, configurable: true
+  });
+}
+function patchMoment(previous, diff) {
+  const result = cloneJson(previous);
+  if (diff == null) return result;
+  if (!diff || typeof diff !== 'object' || Array.isArray(diff)) {
+    throw new Error('历史帧差量格式无效');
+  }
+  for (const [key, value] of Object.entries(diff)) {
+    if (value === 0) {
+      delete result[key];
+    } else if (Array.isArray(value)) {
+      if (value[0] === 1 && Array.isArray(result)) {
+        result.splice(value[1], value[2] - value[1] + 1);
+      } else if (value[0] === 2) {
+        setOwnValue(result, key, cloneJson(value[1]));
+      } else if (value[0] === 3) {
+        setOwnValue(result, key, new Date(value[1]));
+      } else {
+        throw new Error('不支持的历史帧差量操作');
+      }
+    } else {
+      if (!Object.prototype.hasOwnProperty.call(result, key)) {
+        throw new Error('历史帧差量引用了不存在的字段');
+      }
+      setOwnValue(result, key, patchMoment(result[key], value));
+    }
+  }
+  return result;
+}
+function currentMoment(decoded, index = decoded.state?.index) {
+  const state = decoded.state;
+  if (!state || !Array.isArray(state.delta) || !state.delta.length) {
     throw new Error('未找到 state.delta，存档结构可能不兼容');
   }
-  const m0 = decoded.state.delta[0];
-  if (!m0 || typeof m0 !== 'object' || !m0.variables) {
+  if (!Number.isInteger(index) || index < 0 || index >= state.delta.length) {
+    throw new Error('state.index 超出历史帧范围');
+  }
+  let moment = state.delta[0];
+  if (!moment || typeof moment !== 'object' || !moment.variables) {
     throw new Error('delta[0].variables 缺失');
   }
-  return m0.variables;
+  for (let i = 1; i <= index; i++) {
+    moment = patchMoment(moment, state.delta[i]);
+  }
+  if (!moment.variables || typeof moment.variables !== 'object' || Array.isArray(moment.variables)) {
+    throw new Error('当前帧 variables 格式无效');
+  }
+  return moment;
+}
+function extractVariables(decoded) {
+  return currentMoment(decoded).variables;
+}
+
+// 只重新计算当前帧的变量差量，保留此前的历史帧及索引。
+function variableDiff(previous, current) {
+  const diff = {};
+  const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(current, key)) {
+      setOwnValue(diff, key, 0);
+    } else if (!Object.prototype.hasOwnProperty.call(previous, key)
+        || JSON.stringify(previous[key]) !== JSON.stringify(current[key])) {
+      setOwnValue(diff, key, [2, cloneJson(current[key])]);
+    }
+  }
+  return diff;
+}
+function buildSaveObject() {
+  const output = cloneJson(STATE.decoded);
+  if (JSON.stringify(STATE.baselineVars) === JSON.stringify(STATE.vars)) return output;
+
+  const index = output.state.index;
+  if (index === 0) {
+    output.state.delta[0].variables = cloneJson(STATE.vars);
+  } else {
+    const previousVars = currentMoment(output, index - 1).variables;
+    const diff = output.state.delta[index] || {};
+    diff.variables = variableDiff(previousVars, STATE.vars);
+    output.state.delta[index] = diff;
+  }
+  // 如果存档停在历史中的较早帧，编辑后旧的未来差量已不再适用。
+  output.state.delta.length = index + 1;
+  return output;
 }
 
 // ====== 主流程：加载文件 ======
@@ -105,6 +182,7 @@ function handleFile(file) {
       const decoded = decodeSave(text);
       STATE.decoded = decoded;
       STATE.vars = extractVariables(decoded);
+      STATE.baselineVars = cloneJson(STATE.vars);
       STATE.changed.clear();
       enterEditor();
       toast('存档解码成功 ✓', 'success');
@@ -134,9 +212,9 @@ function renderMeta() {
   $('#metaBox').innerHTML = `
     <div><b>游戏 ID：</b>${escapeHtml(d.id || '-')}</div>
     <div><b>游戏版本：</b>${escapeHtml(d.state.loadedVersion || '-')}</div>
-    <div><b>当前帧：</b>${d.state.index} / 总 ${d.state.delta.length}</div>
+    <div><b>当前帧：</b>${d.state.index + 1} / 总 ${d.state.delta.length}</div>
     <div><b>变量总数：</b>${total}</div>
-    <div style="margin-top:8px;color:#9ca3af">导出时会把当前帧重置为 0（截断历史）以保证修改生效。</div>
+    <div style="margin-top:8px;color:#9ca3af">编辑当前帧；修改后导出会保留此前历史。若当前帧后还有历史帧，将截断后续帧。</div>
   `;
 }
 
@@ -291,7 +369,7 @@ function onFieldChange(key, input, fieldEl) {
 
 // ====== 原始 JSON 编辑 ======
 function renderRawJson() {
-  const json = JSON.stringify(STATE.decoded, null, 2);
+  const json = JSON.stringify(buildSaveObject(), null, 2);
   $('#grid').innerHTML = `
     <div style="grid-column:1/-1">
       <div style="font-size:12px;color:#6b7280;margin-bottom:8px">⚠ 直接编辑完整解码后的 JSON。点击"应用 JSON 修改"后才会写入内存；导出仍走打包流程。</div>
@@ -304,9 +382,13 @@ function renderRawJson() {
   $('#applyRaw').addEventListener('click', () => {
     try {
       const obj = JSON.parse($('#rawEditor').value);
+      const vars = extractVariables(obj);
       STATE.decoded = obj;
-      STATE.vars = extractVariables(obj);
+      STATE.vars = vars;
+      STATE.baselineVars = cloneJson(vars);
       STATE.changed.clear();
+      renderTabs();
+      selectTab('raw');
       renderMeta();
       toast('JSON 已应用 ✓', 'success');
     } catch (e) {
@@ -319,13 +401,7 @@ function renderRawJson() {
 // ====== 导出 ======
 function exportSave() {
   try {
-    // 把改过的 variables 写回 delta[0]
-    STATE.decoded.state.delta[0].variables = STATE.vars;
-    // 截断历史，回到全量帧
-    STATE.decoded.state.delta = [STATE.decoded.state.delta[0]];
-    STATE.decoded.state.index = 0;
-
-    const compressed = encodeSave(STATE.decoded);
+    const compressed = encodeSave(buildSaveObject());
     downloadText(compressed, STATE.fileName);
     toast('已导出：' + STATE.fileName, 'success');
   } catch (e) {
@@ -334,7 +410,7 @@ function exportSave() {
   }
 }
 function exportJson() {
-  const json = JSON.stringify(STATE.decoded, null, 2);
+  const json = JSON.stringify(buildSaveObject(), null, 2);
   downloadText(json, STATE.fileName.replace(/\.save$/, '.json'));
 }
 function downloadText(text, name) {
