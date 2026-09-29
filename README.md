@@ -7,7 +7,7 @@
 
 ## 功能
 - 自动识别 `LZString.compressToBase64` 压缩的存档，解出完整 JSON
-- 把 SugarCube 的 `state.delta[0]` 全量帧解析成可视化字段
+- 逐帧还原 SugarCube 的 `state.delta`，显示 `state.index` 指向的当前变量
 - 自动按主题分类（常用 / 身体 / 技能 / 物品 / 关系 / 标志 / 全部）
 - 数字 / 字符串 / 布尔 / 对象 / 数组 自动渲染对应控件
 - 一键重新打包成同格式 `.save`，文件全程不离开本地
@@ -37,8 +37,8 @@
 
 ## 实现要点
 - 解码：`LZString.decompressFromBase64(raw) → JSON.parse`
-- 编辑：写回 `state.delta[0].variables`
-- 打包：截断 `state.delta` 为 `[delta[0]]`、`state.index = 0`，重新压缩
+- 编辑：重新计算当前帧的变量差量，保留此前历史及 `state.index`
+- 打包：未修改时保留原有状态；修改时若当前帧后还有历史帧，仅截断这些后续帧，再重新压缩
 
 ## 文件结构
 ```

@@ -78,7 +78,7 @@
     </ol>
     <h3>关于格式</h3>
     <p>DOL 用 SugarCube 引擎，存档是 <code>JSON.stringify → LZString.compressToBase64</code>。
-       本编辑器解出 <code>state.delta[0].variables</code>，写回后截断历史保证修改生效。</p>
+       本编辑器逐帧还原 <code>state.delta</code>，编辑 <code>state.index</code> 指向的当前变量；修改后保留此前历史。</p>
     <h3>手机使用</h3>
     <p>支持安卓 Chrome/Edge/Firefox 直接访问；可"添加到主屏幕"做成离线 App（PWA）。</p>
     <h3>免责声明</h3>

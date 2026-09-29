@@ -1,6 +1,6 @@
 /* DOL Save Editor - Service Worker
    功能：把所有静态资源缓存进来，安装后断网也能用 */
-const CACHE = 'dol-save-editor-v2';
+const CACHE = 'dol-save-editor-v3';
 const ASSETS = [
   './',
   './index.html',
